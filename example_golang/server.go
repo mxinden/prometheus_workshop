@@ -5,6 +5,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type responseOpts struct {
@@ -46,7 +48,27 @@ var opts = map[string]map[string]responseOpts{
 	},
 }
 
+var (
+	requestCounter = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "request_counter",
+		Help: "Request counter",
+	})
+	requestsOpen = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "requests_open",
+		Help: "Amount of currently open requests",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(requestCounter)
+	prometheus.MustRegister(requestsOpen)
+}
+
 func handleAPI(w http.ResponseWriter, r *http.Request) {
+	requestCounter.Inc()
+	requestsOpen.Inc()
+	defer requestsOpen.Dec()
+
 	pathOpts, ok := opts[r.URL.Path]
 	if !ok {
 		http.Error(w, "Not Found", http.StatusNotFound)
